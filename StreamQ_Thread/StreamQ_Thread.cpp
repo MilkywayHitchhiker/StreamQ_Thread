@@ -10,7 +10,7 @@
 #include <list>
 
 
-#define ThreadMax 8
+#define ThreadMax 3
 
 #define dfTYPE_ADD_STR		0
 #define dfTYPE_DEL_STR		1
@@ -107,13 +107,13 @@ int main()
 			MsgQ.Put (( char * )&Header, sizeof (Header)) != sizeof (Header);
 			MsgQ.Put (( char * )MsgString, Header.shStrLen * 2) != Header.shStrLen * 2;
 		}
-		wprintf (L"Size : %d\n", MsgQ.GetUseSize());
+		int Size = MsgQ.GetUseSize();
 		MsgQ.Free ();
 
 
 		SetEvent (WakeUpHandle);
 
-		Sleep (0);
+		Sleep (2);
 	}
 
 	
@@ -142,8 +142,8 @@ unsigned int WINAPI WorkerThread (LPVOID lpNum)
 		retval = WaitForSingleObject (WakeUpHandle, INFINITE);
 		if ( retval != WAIT_OBJECT_0 )
 		{
-			wprintf (L"ERRORERRORERRORERRORERRORERRORERRORERRORERRORERRORERRORERRORERRORERRORERRORERRORERROR");
-			break;
+			int* a = ( int* )1;
+			int b = *a;
 		}
 
 
@@ -174,27 +174,30 @@ unsigned int WINAPI WorkerThread (LPVOID lpNum)
 			}
 
 
-			AcquireSRWLockExclusive (&ListCS);
+			
 			switch ( Header.shType )
 			{
 			case dfTYPE_ADD_STR:
 				str[Header.shStrLen] = '\0';
-				g_List.push_front (str);
 
+				AcquireSRWLockExclusive (&ListCS);
+				g_List.push_front (str);
+				ReleaseSRWLockExclusive (&ListCS);
 
 				break;
 			case dfTYPE_DEL_STR:
 
-
+				AcquireSRWLockExclusive (&ListCS);
 				if ( !g_List.empty () )
 				{
 					g_List.pop_back ();
 				}
-
+				ReleaseSRWLockExclusive (&ListCS);
 				break;
 
 			case dfTYPE_PRINT_LIST: 
 			{
+				AcquireSRWLockShared (&ListCS);
 				wprintf (L"List : ");
 				for ( iter = g_List.begin (); iter != g_List.end ();)
 				{
@@ -202,6 +205,7 @@ unsigned int WINAPI WorkerThread (LPVOID lpNum)
 					iter++;
 				}
 				wprintf (L"\n");
+				ReleaseSRWLockShared (&ListCS);
 			}
 				break;
 
@@ -209,7 +213,7 @@ unsigned int WINAPI WorkerThread (LPVOID lpNum)
 				wprintf (L"Header Type Error\n");
 				break;
 			}
-			ReleaseSRWLockExclusive (&ListCS);
+			
 
 
 
